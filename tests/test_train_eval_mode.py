@@ -1,6 +1,6 @@
 from typing import Union
 
-import gymnasium as gym
+import gym
 import numpy as np
 import pytest
 import torch as th

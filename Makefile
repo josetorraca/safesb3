@@ -4,16 +4,13 @@ LINT_PATHS=stable_baselines3/ tests/ docs/conf.py setup.py
 pytest:
 	./scripts/run_tests.sh
 
+pytype:
+	pytype -j auto
+
 mypy:
 	mypy ${LINT_PATHS}
 
-missing-annotations:
-	mypy --disallow-untyped-calls --disallow-untyped-defs --ignore-missing-imports stable_baselines3
-
-# missing docstrings
-# pylint -d R,C,W,E -e C0116 stable_baselines3 -j 4
-
-type: mypy
+type: pytype mypy
 
 lint:
 	# stop the build if there are Python syntax errors or undefined names
@@ -24,13 +21,13 @@ lint:
 
 format:
 	# Sort imports
-	ruff --select I ${LINT_PATHS} --fix
+	isort ${LINT_PATHS}
 	# Reformat using black
 	black ${LINT_PATHS}
 
 check-codestyle:
 	# Sort imports
-	ruff --select I ${LINT_PATHS}
+	isort --check ${LINT_PATHS}
 	# Reformat using black
 	black --check ${LINT_PATHS}
 
@@ -57,12 +54,14 @@ docker-gpu:
 
 # PyPi package release
 release:
-	python -m build
+	python setup.py sdist
+	python setup.py bdist_wheel
 	twine upload dist/*
 
 # Test PyPi package release
 test-release:
-	python -m build
+	python setup.py sdist
+	python setup.py bdist_wheel
 	twine upload --repository-url https://test.pypi.org/legacy/ dist/*
 
 .PHONY: clean spelling doc lint format check-codestyle commit-checks

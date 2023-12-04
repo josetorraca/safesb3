@@ -17,8 +17,6 @@ Goals of this repository:
 3. Provide tuned hyperparameters for each environment and RL algorithm
 4. Have fun with the trained agents!
 
-Documentation is available online: https://rl-baselines3-zoo.readthedocs.io/
-
 Installation
 ------------
 

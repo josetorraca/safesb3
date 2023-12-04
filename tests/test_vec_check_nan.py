@@ -1,7 +1,7 @@
-import gymnasium as gym
+import gym
 import numpy as np
 import pytest
-from gymnasium import spaces
+from gym import spaces
 
 from stable_baselines3.common.vec_env import DummyVecEnv, VecCheckNan
 
@@ -9,7 +9,7 @@ from stable_baselines3.common.vec_env import DummyVecEnv, VecCheckNan
 class NanAndInfEnv(gym.Env):
     """Custom Environment that raised NaNs and Infs"""
 
-    metadata = {"render_modes": ["human"]}
+    metadata = {"render.modes": ["human"]}
 
     def __init__(self):
         super().__init__()
@@ -24,13 +24,13 @@ class NanAndInfEnv(gym.Env):
             obs = float("inf")
         else:
             obs = 0
-        return [obs], 0.0, False, False, {}
+        return [obs], 0.0, False, {}
 
     @staticmethod
-    def reset(seed=None):
-        return [0.0], {}
+    def reset():
+        return [0.0]
 
-    def render(self):
+    def render(self, mode="human", close=False):
         pass
 
 

@@ -30,7 +30,7 @@ You can find two examples of custom callbacks in the documentation: one for savi
         :param verbose: Verbosity level: 0 for no output, 1 for info messages, 2 for debug messages
         """
         def __init__(self, verbose=0):
-            super().__init__(verbose)
+            super(CustomCallback, self).__init__(verbose)
             # Those variables will be accessible in the callback
             # (they are defined in the base class)
             # The RL model
@@ -70,7 +70,7 @@ You can find two examples of custom callbacks in the documentation: one for savi
             For child callback (of an `EventCallback`), this will be called
             when the event is triggered.
 
-            :return: If the callback returns False, training is aborted early.
+            :return: (bool) If the callback returns False, training is aborted early.
             """
             return True
 
@@ -110,7 +110,7 @@ A child callback is for instance :ref:`StopTrainingOnRewardThreshold <StopTraini
 
 .. note::
 
-	We recommend taking a look at the source code of :ref:`EvalCallback` and :ref:`StopTrainingOnRewardThreshold <StopTrainingCallback>` to have a better overview of what can be achieved with this kind of callbacks.
+	We recommend to take a look at the source code of :ref:`EvalCallback` and :ref:`StopTrainingOnRewardThreshold <StopTrainingCallback>` to have a better overview of what can be achieved with this kind of callbacks.
 
 
 .. code-block:: python
@@ -119,18 +119,23 @@ A child callback is for instance :ref:`StopTrainingOnRewardThreshold <StopTraini
         """
         Base class for triggering callback on event.
 
-        :param callback: Callback that will be called when an event is triggered.
+        :param callback: (Optional[BaseCallback]) Callback that will be called
+            when an event is triggered.
         :param verbose: Verbosity level: 0 for no output, 1 for info messages, 2 for debug messages
         """
-        def __init__(self, callback: BaseCallback, verbose: int = 0):
-            super().__init__(verbose=verbose)
+        def __init__(self, callback: Optional[BaseCallback] = None, verbose: int = 0):
+            super(EventCallback, self).__init__(verbose=verbose)
             self.callback = callback
             # Give access to the parent
-            self.callback.parent = self
+            if callback is not None:
+                self.callback.parent = self
         ...
 
         def _on_event(self) -> bool:
-            return self.callback()
+            if self.callback is not None:
+                return self.callback()
+            return True
+
 
 
 Callback Collection
@@ -159,8 +164,8 @@ corresponding statistics using ``save_vecnormalize`` (``False`` by default).
 
 .. warning::
 
-  When using multiple environments, each call to ``env.step()`` will effectively correspond to ``n_envs`` steps.
-  If you want the ``save_freq`` to be similar when using a different number of environments,
+  When using multiple environments, each call to  ``env.step()`` will effectively correspond to ``n_envs`` steps.
+  If you want the ``save_freq`` to be similar when using different number of environments,
   you need to account for it using ``save_freq = max(save_freq // n_envs, 1)``.
   The same goes for the other callbacks.
 
@@ -189,7 +194,7 @@ EvalCallback
 ^^^^^^^^^^^^
 
 Evaluate periodically the performance of an agent, using a separate test environment.
-It will save the best model if ``best_model_save_path`` folder is specified and save the evaluations results in a NumPy archive (``evaluations.npz``) if ``log_path`` folder is specified.
+It will save the best model if ``best_model_save_path`` folder is specified and save the evaluations results in a numpy archive (``evaluations.npz``) if ``log_path`` folder is specified.
 
 
 .. note::
@@ -205,7 +210,7 @@ It will save the best model if ``best_model_save_path`` folder is specified and 
 
 .. code-block:: python
 
-    import gymnasium as gym
+    import gym
 
     from stable_baselines3 import SAC
     from stable_baselines3.common.callbacks import EvalCallback
@@ -230,7 +235,7 @@ This callback is integrated inside SB3 via the ``progress_bar`` argument of the 
 
 .. note::
 
-	``ProgressBarCallback`` callback requires ``tqdm`` and ``rich`` packages to be installed. This is done automatically when using ``pip install stable-baselines3[extra]``
+	This callback requires ``tqdm`` and ``rich`` packages to be installed. This is done automatically when using ``pip install stable-baselines3[extra]``
 
 
 .. code-block:: python
@@ -255,7 +260,7 @@ Alternatively, you can pass directly a list of callbacks to the ``learn()`` meth
 
 .. code-block:: python
 
-    import gymnasium as gym
+    import gym
 
     from stable_baselines3 import SAC
     from stable_baselines3.common.callbacks import CallbackList, CheckpointCallback, EvalCallback
@@ -285,7 +290,7 @@ It must be used with the :ref:`EvalCallback` and use the event triggered by a ne
 
 .. code-block:: python
 
-    import gymnasium as gym
+    import gym
 
     from stable_baselines3 import SAC
     from stable_baselines3.common.callbacks import EvalCallback, StopTrainingOnRewardThreshold
@@ -317,7 +322,7 @@ An :ref:`EventCallback` that will trigger its child callback every ``n_steps`` t
 
 .. code-block:: python
 
-  import gymnasium as gym
+  import gym
 
   from stable_baselines3 import PPO
   from stable_baselines3.common.callbacks import CheckpointCallback, EveryNTimesteps
@@ -367,14 +372,14 @@ StopTrainingOnNoModelImprovement
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Stop the training if there is no new best model (no new best mean reward) after more than a specific number of consecutive evaluations.
-The idea is to save time in experiments when you know that the learning curves are somehow well-behaved and, therefore,
+The idea is to save time in experiments when you know that the learning curves are somehow well behaved and, therefore,
 after many evaluations without improvement the learning has probably stabilized.
 It must be used with the :ref:`EvalCallback` and use the event triggered after every evaluation.
 
 
 .. code-block:: python
 
-    import gymnasium as gym
+    import gym
 
     from stable_baselines3 import SAC
     from stable_baselines3.common.callbacks import EvalCallback, StopTrainingOnNoModelImprovement

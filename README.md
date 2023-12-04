@@ -73,7 +73,7 @@ Goals of this repository:
 
 Github repo: https://github.com/DLR-RM/rl-baselines3-zoo
 
-Documentation: https://rl-baselines3-zoo.readthedocs.io/en/master/
+Documentation: https://stable-baselines3.readthedocs.io/en/master/guide/rl_zoo.html
 
 ## SB3-Contrib: Experimental RL Features
 
@@ -83,19 +83,13 @@ This allows SB3 to maintain a stable and compact core, while still providing the
 
 Documentation is available online: [https://sb3-contrib.readthedocs.io/](https://sb3-contrib.readthedocs.io/)
 
-## Stable-Baselines Jax (SBX)
-
-[Stable Baselines Jax (SBX)](https://github.com/araffin/sbx) is a proof of concept version of Stable-Baselines3 in Jax.
-
-It provides a minimal number of features compared to SB3 but can be much faster (up to 20x times!): https://twitter.com/araffin2/status/1590714558628253698
-
 
 ## Installation
 
-**Note:** Stable-Baselines3 supports PyTorch >= 1.13
+**Note:** Stable-Baselines3 supports PyTorch >= 1.11
 
 ### Prerequisites
-Stable Baselines3 requires Python 3.8+.
+Stable Baselines3 requires Python 3.7+.
 
 #### Windows 10
 
@@ -109,7 +103,7 @@ pip install stable-baselines3[extra]
 ```
 **Note:** Some shells such as Zsh require quotation marks around brackets, i.e. `pip install 'stable-baselines3[extra]'` ([More Info](https://stackoverflow.com/a/30539963)).
 
-This includes an optional dependencies like Tensorboard, OpenCV or `ale-py` to train on atari games. If you do not need those, you can use:
+This includes an optional dependencies like Tensorboard, OpenCV or `atari-py` to train on atari games. If you do not need those, you can use:
 ```sh
 pip install stable-baselines3
 ```
@@ -123,7 +117,7 @@ Most of the code in the library tries to follow a sklearn-like syntax for the Re
 
 Here is a quick example of how to train and run PPO on a cartpole environment:
 ```python
-import gymnasium as gym
+import gym
 
 from stable_baselines3 import PPO
 
@@ -145,7 +139,7 @@ for i in range(1000):
 env.close()
 ```
 
-Or just train a model with a one liner if [the environment is registered in Gymnasium](https://gymnasium.farama.org/tutorials/gymnasium_basics/environment_creation/#registering-envs) and if [the policy is registered](https://stable-baselines3.readthedocs.io/en/master/guide/custom_policy.html):
+Or just train a model with a one liner if [the environment is registered in Gym](https://github.com/openai/gym/wiki/Environments) and if [the policy is registered](https://stable-baselines3.readthedocs.io/en/master/guide/custom_policy.html):
 
 ```python
 from stable_baselines3 import PPO

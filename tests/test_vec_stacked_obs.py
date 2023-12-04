@@ -1,5 +1,5 @@
 import numpy as np
-from gymnasium import spaces
+from gym import spaces
 
 from stable_baselines3.common.vec_env.stacked_observations import StackedObservations
 

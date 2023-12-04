@@ -2,16 +2,12 @@ import collections
 import functools
 import itertools
 import multiprocessing
-import os
-import warnings
-from typing import Dict, Optional
 
-import gymnasium as gym
+import gym
 import numpy as np
 import pytest
-from gymnasium import spaces
+from gym import spaces
 
-from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.vec_env import DummyVecEnv, SubprocVecEnv, VecFrameStack, VecNormalize
 
@@ -21,7 +17,7 @@ VEC_ENV_WRAPPERS = [None, VecNormalize, VecFrameStack]
 
 
 class CustomGymEnv(gym.Env):
-    def __init__(self, space, render_mode: str = "rgb_array"):
+    def __init__(self, space):
         """
         Custom gym environment for testing purposes
         """
@@ -29,30 +25,24 @@ class CustomGymEnv(gym.Env):
         self.observation_space = space
         self.current_step = 0
         self.ep_length = 4
-        self.render_mode = render_mode
-        self.current_options: Optional[Dict] = None
 
-    def reset(self, *, seed: Optional[int] = None, options: Optional[Dict] = None):
-        if seed is not None:
-            self.seed(seed)
+    def reset(self):
         self.current_step = 0
-        self.current_options = options
         self._choose_next_state()
-        return self.state, {}
+        return self.state
 
     def step(self, action):
         reward = float(np.random.rand())
         self._choose_next_state()
         self.current_step += 1
-        terminated = False
-        truncated = self.current_step >= self.ep_length
-        return self.state, reward, terminated, truncated, {}
+        done = self.current_step >= self.ep_length
+        return self.state, reward, done, {}
 
     def _choose_next_state(self):
         self.state = self.observation_space.sample()
 
-    def render(self):
-        if self.render_mode == "rgb_array":
+    def render(self, mode="human"):
+        if mode == "rgb_array":
             return np.zeros((4, 4, 3))
 
     def seed(self, seed=None):
@@ -101,20 +91,9 @@ def test_vecenv_custom_calls(vec_env_class, vec_env_wrapper):
 
     # Test seed method
     vec_env.seed(0)
-
     # Test render method call
-    array_explicit_mode = vec_env.render(mode="rgb_array")
-    # test render without argument (new gym API style)
-    array_implicit_mode = vec_env.render()
-    assert np.array_equal(array_implicit_mode, array_explicit_mode)
-
-    # test warning if you try different render mode
-    with pytest.warns(UserWarning):
-        vec_env.render(mode="something_else")
-
-    # we need a X server to test the "human" mode (uses OpenCV)
-    # vec_env.render(mode="human")
-
+    # vec_env.render()  # we need a X server  to test the "human" mode
+    vec_env.render(mode="rgb_array")
     env_method_results = vec_env.env_method("custom_method", 1, indices=None, dim_1=2)
     setattr_results = []
     # Set current_step to an arbitrary value
@@ -162,25 +141,6 @@ def test_vecenv_custom_calls(vec_env_class, vec_env_wrapper):
     assert getattr_result == [12] + [0 for _ in range(N_ENVS - 2)] + [12]
     assert vec_env.get_attr("current_step", indices=[-1]) == [12]
 
-    # Checks that options are correctly passed
-    assert vec_env.get_attr("current_options")[0] is None
-    # Same options for all envs
-    options = {"hello": 1}
-    vec_env.set_options(options)
-    assert vec_env.get_attr("current_options")[0] is None
-    # Only effective at reset
-    vec_env.reset()
-    assert vec_env.get_attr("current_options") == [options] * N_ENVS
-    vec_env.reset()
-    # Options are reset
-    assert vec_env.get_attr("current_options")[0] is None
-    # Use a list of options, different for the first env
-    options = [{"hello": 1}] * N_ENVS
-    options[0] = {"other_option": 2}
-    vec_env.set_options(options)
-    vec_env.reset()
-    assert vec_env.get_attr("current_options") == options
-
     vec_env.close()
 
 
@@ -193,16 +153,15 @@ class StepEnv(gym.Env):
         self.max_steps = max_steps
         self.current_step = 0
 
-    def reset(self, *, seed: Optional[int] = None, options: Optional[Dict] = None):
+    def reset(self):
         self.current_step = 0
-        return np.array([self.current_step], dtype="int"), {}
+        return np.array([self.current_step], dtype="int")
 
     def step(self, action):
         prev_step = self.current_step
         self.current_step += 1
-        terminated = False
-        truncated = self.current_step >= self.max_steps
-        return np.array([prev_step], dtype="int"), 0.0, terminated, truncated, {}
+        done = self.current_step >= self.max_steps
+        return np.array([prev_step], dtype="int"), 0.0, done, {}
 
 
 @pytest.mark.parametrize("vec_env_class", VEC_ENV_CLASSES)
@@ -497,36 +456,6 @@ def test_vec_env_is_wrapped():
 
 
 @pytest.mark.parametrize("vec_env_class", VEC_ENV_CLASSES)
-def test_vec_deterministic(vec_env_class):
-    def make_env():
-        env = CustomGymEnv(gym.spaces.Box(low=np.zeros(2), high=np.ones(2)))
-        return env
-
-    vec_env = vec_env_class([make_env for _ in range(N_ENVS)])
-    vec_env.seed(3)
-    obs = vec_env.reset()
-    vec_env.seed(3)
-    new_obs = vec_env.reset()
-    assert np.allclose(new_obs, obs)
-    # Test with VecNormalize (VecEnvWrapper should call self.venv.seed())
-    vec_normalize = VecNormalize(vec_env)
-    vec_normalize.seed(3)
-    obs = vec_env.reset()
-    vec_normalize.seed(3)
-    new_obs = vec_env.reset()
-    assert np.allclose(new_obs, obs)
-    vec_normalize.close()
-    # Similar test but with make_vec_env
-    vec_env_1 = make_vec_env("Pendulum-v1", n_envs=N_ENVS, vec_env_cls=vec_env_class, seed=0)
-    vec_env_2 = make_vec_env("Pendulum-v1", n_envs=N_ENVS, vec_env_cls=vec_env_class, seed=0)
-    assert np.allclose(vec_env_1.reset(), vec_env_2.reset())
-    random_actions = [vec_env_1.action_space.sample() for _ in range(N_ENVS)]
-    assert np.allclose(vec_env_1.step(random_actions)[0], vec_env_2.step(random_actions)[0])
-    vec_env_1.close()
-    vec_env_2.close()
-
-
-@pytest.mark.parametrize("vec_env_class", VEC_ENV_CLASSES)
 def test_vec_seeding(vec_env_class):
     def make_env():
         return CustomGymEnv(spaces.Box(low=np.zeros(2), high=np.ones(2)))
@@ -555,72 +484,3 @@ def test_vec_seeding(vec_env_class):
         assert not np.allclose(rewards[1], rewards[2])
 
         vec_env.close()
-
-
-@pytest.mark.parametrize("vec_env_class", VEC_ENV_CLASSES)
-def test_render(vec_env_class):
-    # Skip if no X-Server
-    if not os.environ.get("DISPLAY"):
-        pytest.skip("No X-Server")
-
-    env_id = "Pendulum-v1"
-    # DummyVecEnv human render is currently
-    # buggy because of gym:
-    # https://github.com/carlosluis/stable-baselines3/pull/3#issuecomment-1356863808
-    n_envs = 2
-    # Human render
-    vec_env = make_vec_env(
-        env_id,
-        n_envs,
-        vec_env_cls=vec_env_class,
-        env_kwargs=dict(render_mode="human"),
-    )
-
-    vec_env.reset()
-    vec_env.render()
-
-    with pytest.warns(UserWarning):
-        vec_env.render("rgb_array")
-
-    with pytest.warns(UserWarning):
-        vec_env.render(mode="blah")
-
-    for _ in range(10):
-        vec_env.step([vec_env.action_space.sample() for _ in range(n_envs)])
-        vec_env.render()
-
-    vec_env.close()
-    # rgb_array render, which allows human_render
-    # thanks to OpenCV
-    vec_env = make_vec_env(
-        env_id,
-        n_envs,
-        vec_env_cls=vec_env_class,
-        env_kwargs=dict(render_mode="rgb_array"),
-    )
-
-    vec_env.reset()
-    with warnings.catch_warnings(record=True) as record:
-        vec_env.render()
-        vec_env.render("rgb_array")
-        vec_env.render(mode="human")
-
-    # No warnings for using human mode
-    assert len(record) == 0
-
-    with pytest.warns(UserWarning):
-        vec_env.render(mode="blah")
-
-    for _ in range(10):
-        vec_env.step([vec_env.action_space.sample() for _ in range(n_envs)])
-        vec_env.render()
-
-    # Check that it still works with vec env wrapper
-    vec_env = VecFrameStack(vec_env, 2)
-    vec_env.render()
-    assert vec_env.render_mode == "rgb_array"
-    vec_env = VecNormalize(vec_env)
-    assert vec_env.render_mode == "rgb_array"
-    vec_env.render()
-
-    vec_env.close()

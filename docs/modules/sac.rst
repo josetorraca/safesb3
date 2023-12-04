@@ -68,11 +68,12 @@ This example is only to demonstrate the use of the library and its functions, an
 
 .. code-block:: python
 
-  import gymnasium as gym
+  import gym
+  import numpy as np
 
   from stable_baselines3 import SAC
 
-  env = gym.make("Pendulum-v1", render_mode="human")
+  env = gym.make("Pendulum-v1")
 
   model = SAC("MlpPolicy", env, verbose=1)
   model.learn(total_timesteps=10000, log_interval=4)
@@ -82,12 +83,13 @@ This example is only to demonstrate the use of the library and its functions, an
 
   model = SAC.load("sac_pendulum")
 
-  obs, info = env.reset()
+  obs = env.reset()
   while True:
       action, _states = model.predict(obs, deterministic=True)
-      obs, reward, terminated, truncated, info = env.step(action)
-      if terminated or truncated:
-          obs, info = env.reset()
+      obs, reward, done, info = env.step(action)
+      env.render()
+      if done:
+        obs = env.reset()
 
 
 Results

@@ -39,11 +39,11 @@ Most of the library tries to follow a sklearn-like syntax for the Reinforcement 
 Here is a quick example of how to train and run PPO on a cartpole environment:
 
 ```python
-import gymnasium
+import gym
 
 from stable_baselines3 import PPO
 
-env = gymnasium.make("CartPole-v1")
+env = gym.make("CartPole-v1")
 
 model = PPO("MlpPolicy", env, verbose=1)
 model.learn(total_timesteps=10_000)
@@ -60,7 +60,7 @@ for i in range(1000):
 
 ```
 
-Or just train a model with a one liner if [the environment is registered in Gymnasium](https://gymnasium.farama.org/tutorials/gymnasium_basics/environment_creation/) and if [the policy is registered](https://stable-baselines3.readthedocs.io/en/master/guide/custom_policy.html):
+Or just train a model with a one liner if [the environment is registered in Gym](https://www.gymlibrary.ml/content/environment_creation/) and if [the policy is registered](https://stable-baselines3.readthedocs.io/en/master/guide/custom_policy.html):
 
 ```python
 from stable_baselines3 import PPO
@@ -76,7 +76,6 @@ model = PPO("MlpPolicy", "CartPole-v1").learn(10_000)
 extra_no_roms = [
     # For render
     "opencv-python",
-    "pygame",
     # Tensorboard support
     "tensorboard>=2.9.1",
     # Checking memory taken by replay buffer
@@ -85,13 +84,13 @@ extra_no_roms = [
     "tqdm",
     "rich",
     # For atari games,
-    "shimmy[atari]~=1.3.0",
+    "ale-py==0.7.4",
     "pillow",
 ]
 
 extra_packages = extra_no_roms + [  # noqa: RUF005
     # For atari roms,
-    "autorom[accept-rom-license]~=0.6.1",
+    "autorom[accept-rom-license]~=0.6.0",
 ]
 
 
@@ -100,15 +99,18 @@ setup(
     packages=[package for package in find_packages() if package.startswith("stable_baselines3")],
     package_data={"stable_baselines3": ["py.typed", "version.txt"]},
     install_requires=[
-        "gymnasium>=0.28.1,<0.30",
-        "numpy>=1.20",
-        "torch>=1.13",
+        "gym==0.21",  # Fixed version due to breaking changes in 0.22
+        "numpy",
+        "torch>=1.11",
+        'typing_extensions>=4.0,<5; python_version < "3.8.0"',
         # For saving models
         "cloudpickle",
         # For reading logs
         "pandas",
         # Plotting learning curves
         "matplotlib",
+        # gym not compatible with importlib-metadata>5.0
+        "importlib-metadata~=4.13",
     ],
     extras_require={
         "tests": [
@@ -118,18 +120,25 @@ setup(
             "pytest-env",
             "pytest-xdist",
             # Type check
+            "pytype",
             "mypy",
-            # Lint code and sort imports (flake8 and isort replacement)
-            "ruff>=0.0.288",
+            # Lint code (flake8 replacement)
+            "ruff",
+            # Sort imports
+            "isort>=5.0",
             # Reformat
-            "black>=23.9.1,<24",
+            "black",
+            # For toy text Gym envs
+            "scipy>=1.4.1",
         ],
         "docs": [
-            "sphinx>=5,<8",
+            "sphinx",
             "sphinx-autobuild",
-            "sphinx-rtd-theme>=1.3.0",
+            "sphinx-rtd-theme",
             # For spelling
             "sphinxcontrib.spelling",
+            # Type hints support
+            "sphinx-autodoc-typehints",
             # Copy button for code snippets
             "sphinx_copybutton",
         ],
@@ -141,27 +150,25 @@ setup(
     url="https://github.com/DLR-RM/stable-baselines3",
     author_email="antonin.raffin@dlr.de",
     keywords="reinforcement-learning-algorithms reinforcement-learning machine-learning "
-    "gymnasium gym openai stable baselines toolbox python data-science",
+    "gym openai stable baselines toolbox python data-science",
     license="MIT",
     long_description=long_description,
     long_description_content_type="text/markdown",
     version=__version__,
-    python_requires=">=3.8",
+    python_requires=">=3.7",
     # PyPI package information.
     project_urls={
         "Code": "https://github.com/DLR-RM/stable-baselines3",
         "Documentation": "https://stable-baselines3.readthedocs.io/",
-        "Changelog": "https://stable-baselines3.readthedocs.io/en/master/misc/changelog.html",
         "SB3-Contrib": "https://github.com/Stable-Baselines-Team/stable-baselines3-contrib",
         "RL-Zoo": "https://github.com/DLR-RM/rl-baselines3-zoo",
-        "SBX": "https://github.com/araffin/sbx",
     },
     classifiers=[
         "Programming Language :: Python :: 3",
+        "Programming Language :: Python :: 3.7",
         "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
-        "Programming Language :: Python :: 3.11",
     ],
 )
 

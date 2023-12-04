@@ -2,20 +2,18 @@ import importlib.util
 import os
 import sys
 import time
-from io import TextIOBase
 from typing import Sequence
 from unittest import mock
 
-import gymnasium as gym
+import gym
 import numpy as np
 import pytest
 import torch as th
-from gymnasium import spaces
+from gym import spaces
 from matplotlib import pyplot as plt
 from pandas.errors import EmptyDataError
 
 from stable_baselines3 import A2C, DQN
-from stable_baselines3.common.env_checker import check_env
 from stable_baselines3.common.logger import (
     DEBUG,
     INFO,
@@ -96,7 +94,7 @@ def read_log(tmp_path, capsys):
             tb_values_logged = []
             for reservoir in [acc.scalars, acc.tensors, acc.images, acc.histograms, acc.compressed_histograms]:
                 for k in reservoir.Keys():
-                    tb_values_logged.append(f"{k}: {reservoir.Items(k)!s}")
+                    tb_values_logged.append(f"{k}: {str(reservoir.Items(k))}")
 
             content = LogContent(_format, tb_values_logged)
             return content
@@ -353,19 +351,13 @@ class TimeDelayEnv(gym.Env):
         self.observation_space = spaces.Box(low=-20.0, high=20.0, shape=(4,), dtype=np.float32)
         self.action_space = spaces.Discrete(2)
 
-    def reset(self, seed=None):
-        return self.observation_space.sample(), {}
+    def reset(self):
+        return self.observation_space.sample()
 
     def step(self, action):
         time.sleep(self.delay)
         obs = self.observation_space.sample()
-        return obs, 0.0, True, False, {}
-
-
-@pytest.mark.parametrize("env_cls", [TimeDelayEnv])
-def test_env(env_cls):
-    # Check the env used for testing
-    check_env(env_cls(), skip_render_check=True)
+        return obs, 0.0, True, {}
 
 
 class InMemoryLogger(Logger):
@@ -435,42 +427,3 @@ def test_ep_buffers_stats_window_size(algo, stats_window_size):
     model.learn(total_timesteps=10)
     assert model.ep_info_buffer.maxlen == stats_window_size
     assert model.ep_success_buffer.maxlen == stats_window_size
-
-
-@pytest.mark.parametrize("base_class", [object, TextIOBase])
-def test_human_output_format_custom_test_io(base_class):
-    class DummyTextIO(base_class):
-        def __init__(self) -> None:
-            super().__init__()
-            self.lines = [[]]
-
-        def write(self, t: str) -> int:
-            self.lines[-1].append(t)
-
-        def flush(self) -> None:
-            self.lines.append([])
-
-        def close(self) -> None:
-            pass
-
-        def get_printed(self) -> str:
-            return "\n".join(["".join(line) for line in self.lines])
-
-    dummy_text_io = DummyTextIO()
-    output = HumanOutputFormat(dummy_text_io)
-    output.write({"key1": "value1", "key2": 42}, {"key1": None, "key2": None})
-    output.write({"key1": "value2", "key2": 43}, {"key1": None, "key2": None})
-    printed = dummy_text_io.get_printed()
-    desired_printed = """-----------------
-| key1 | value1 |
-| key2 | 42     |
------------------
-
------------------
-| key1 | value2 |
-| key2 | 43     |
------------------
-
-"""
-
-    assert printed == desired_printed

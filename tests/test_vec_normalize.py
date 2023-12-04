@@ -1,10 +1,10 @@
 import operator
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
-import gymnasium as gym
+import gym
 import numpy as np
 import pytest
-from gymnasium import spaces
+from gym import spaces
 
 from stable_baselines3 import SAC, TD3, HerReplayBuffer
 from stable_baselines3.common.envs import FakeImageEnv
@@ -35,15 +35,11 @@ class DummyRewardEnv(gym.Env):
         self.t += 1
         index = (self.t + self.return_reward_idx) % len(self.returned_rewards)
         returned_value = self.returned_rewards[index]
-        terminated = False
-        truncated = self.t == len(self.returned_rewards)
-        return np.array([returned_value]), returned_value, terminated, truncated, {}
+        return np.array([returned_value]), returned_value, self.t == len(self.returned_rewards), {}
 
-    def reset(self, *, seed: Optional[int] = None, options: Optional[Dict] = None):
-        if seed is not None:
-            super().reset(seed=seed)
+    def reset(self):
         self.t = 0
-        return np.array([self.returned_rewards[self.return_reward_idx]]), {}
+        return np.array([self.returned_rewards[self.return_reward_idx]])
 
 
 class DummyDictEnv(gym.Env):
@@ -62,16 +58,14 @@ class DummyDictEnv(gym.Env):
         )
         self.action_space = spaces.Box(low=-1, high=1, shape=(3,), dtype=np.float32)
 
-    def reset(self, *, seed: Optional[int] = None, options: Optional[Dict] = None):
-        if seed is not None:
-            super().reset(seed=seed)
-        return self.observation_space.sample(), {}
+    def reset(self):
+        return self.observation_space.sample()
 
     def step(self, action):
         obs = self.observation_space.sample()
         reward = self.compute_reward(obs["achieved_goal"], obs["desired_goal"], {})
-        terminated = np.random.rand() > 0.8
-        return obs, reward, terminated, False, {}
+        done = np.random.rand() > 0.8
+        return obs, reward, done, {}
 
     def compute_reward(self, achieved_goal: np.ndarray, desired_goal: np.ndarray, _info) -> np.float32:
         distance = np.linalg.norm(achieved_goal - desired_goal, axis=-1)
@@ -94,15 +88,13 @@ class DummyMixedDictEnv(gym.Env):
         )
         self.action_space = spaces.Box(low=-1, high=1, shape=(3,), dtype=np.float32)
 
-    def reset(self, *, seed: Optional[int] = None, options: Optional[Dict] = None):
-        if seed is not None:
-            super().reset(seed=seed)
-        return self.observation_space.sample(), {}
+    def reset(self):
+        return self.observation_space.sample()
 
     def step(self, action):
         obs = self.observation_space.sample()
-        terminated = np.random.rand() > 0.8
-        return obs, 0.0, terminated, False, {}
+        done = np.random.rand() > 0.8
+        return obs, 0.0, done, {}
 
 
 def allclose(obs_1, obs_2):
@@ -121,10 +113,6 @@ def allclose(obs_1, obs_2):
 
 def make_env():
     return Monitor(gym.make(ENV_ID))
-
-
-def make_env_render():
-    return Monitor(gym.make(ENV_ID, render_mode="rgb_array"))
 
 
 def make_dict_env():
@@ -261,17 +249,14 @@ def test_obs_rms_vec_normalize():
     assert np.allclose(env.ret_rms.mean, 5.688, atol=1e-3)
 
 
-@pytest.mark.parametrize("make_gym_env", [make_env, make_dict_env, make_image_env])
-def test_vec_env(tmp_path, make_gym_env):
+@pytest.mark.parametrize("make_env", [make_env, make_dict_env, make_image_env])
+def test_vec_env(tmp_path, make_env):
     """Test VecNormalize Object"""
     clip_obs = 0.5
     clip_reward = 5.0
 
-    orig_venv = DummyVecEnv([make_gym_env])
+    orig_venv = DummyVecEnv([make_env])
     norm_venv = VecNormalize(orig_venv, norm_obs=True, norm_reward=True, clip_obs=clip_obs, clip_reward=clip_reward)
-    assert orig_venv.render_mode is None
-    assert norm_venv.render_mode is None
-
     _, done = norm_venv.reset(), [False]
     while not done[0]:
         actions = [norm_venv.action_space.sample()]
@@ -285,18 +270,8 @@ def test_vec_env(tmp_path, make_gym_env):
 
     path = tmp_path / "vec_normalize"
     norm_venv.save(path)
-    assert orig_venv.render_mode is None
     deserialized = VecNormalize.load(path, venv=orig_venv)
-    assert deserialized.render_mode is None
     check_vec_norm_equal(norm_venv, deserialized)
-
-    # Check that render mode is properly updated
-    vec_env = DummyVecEnv([make_env_render])
-    assert vec_env.render_mode == "rgb_array"
-    # Test that loading and wrapping keep the correct render mode
-    if make_gym_env == make_env:
-        assert VecNormalize.load(path, venv=vec_env).render_mode == "rgb_array"
-        assert VecNormalize(vec_env).render_mode == "rgb_array"
 
 
 def test_get_original():
