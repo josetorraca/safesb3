@@ -96,6 +96,10 @@ class PPO(OnPolicyAlgorithm):
         verbose: int = 0,
         seed: Optional[int] = None,
         device: Union[th.device, str] = "auto",
+##################################################################################################################################################################    
+        positive_definiteness_penalty_weight: float = 0.01,  # Default weight for positive definiteness penalty
+        gradient_penalty_weight: float = 0.01,  # Default weight for gradient penalty
+##################################################################################################################################################################    
         _init_setup_model: bool = True,
     ):
 
@@ -156,6 +160,11 @@ class PPO(OnPolicyAlgorithm):
         self.clip_range_vf = clip_range_vf
         self.normalize_advantage = normalize_advantage
         self.target_kl = target_kl
+##################################################################################################################################################################      
+        # Additional weights for penalties
+        self.positive_definiteness_penalty_weight = positive_definiteness_penalty_weight
+        self.gradient_penalty_weight = gradient_penalty_weight
+##################################################################################################################################################################   
 
         if _init_setup_model:
             self._setup_model()
@@ -170,6 +179,8 @@ class PPO(OnPolicyAlgorithm):
                 assert self.clip_range_vf > 0, "`clip_range_vf` must be positive, " "pass `None` to deactivate vf clipping"
 
             self.clip_range_vf = get_schedule_fn(self.clip_range_vf)
+            
+##################################################################################################################################################################    
 
     def train(self) -> None:
         """
@@ -190,6 +201,13 @@ class PPO(OnPolicyAlgorithm):
         clip_fractions = []
 
         continue_training = True
+ 
+################################################################################################################################################################## 
+
+        # Initialize previous value for comparison (set to a very high value initially)
+        prev_value = th.tensor(float('inf'))
+        
+##################################################################################################################################################################
 
         # train for n_epochs epochs
         for epoch in range(self.n_epochs):
@@ -207,6 +225,7 @@ class PPO(OnPolicyAlgorithm):
 
                 values, log_prob, entropy = self.policy.evaluate_actions(rollout_data.observations, actions)
                 values = values.flatten()
+                   
                 # Normalize advantage
                 advantages = rollout_data.advantages
                 # Normalization does not make sense if mini batchsize == 1, see GH issue #325
@@ -249,6 +268,25 @@ class PPO(OnPolicyAlgorithm):
                 entropy_losses.append(entropy_loss.item())
 
                 loss = policy_loss + self.ent_coef * entropy_loss + self.vf_coef * value_loss
+                
+##################################################################################################################################################################             
+   
+                # Ensuring positive definiteness
+                if any(values < 0):  # Add a penalty if values are negative
+                    positive_definiteness_penalty = th.mean(th.relu(-values))
+                    loss += self.positive_definiteness_penalty_weight * positive_definiteness_penalty
+
+                # Ensuring gradient < 0 w.r.t time
+                # Compare current values to previous values
+                if not prev_value.equal(th.tensor(float('inf'))):  # Skip the very first comparison
+                    value_increase = th.relu(values - prev_value)  # Positive increase
+                    gradient_penalty = th.mean(value_increase)
+                    loss += self.gradient_penalty_weight * gradient_penalty
+                
+                # Store current values for next comparison
+                prev_value = values.detach().clone()
+           
+##################################################################################################################################################################  
 
                 # Calculate approximate form of reverse KL Divergence for early stopping
                 # see issue #417: https://github.com/DLR-RM/stable-baselines3/issues/417
@@ -268,6 +306,7 @@ class PPO(OnPolicyAlgorithm):
                 # Optimization step
                 self.policy.optimizer.zero_grad()
                 loss.backward()
+##################################################################################################################################################################
                 # Clip grad norm
                 th.nn.utils.clip_grad_norm_(self.policy.parameters(), self.max_grad_norm)
                 self.policy.optimizer.step()
@@ -285,6 +324,7 @@ class PPO(OnPolicyAlgorithm):
         self.logger.record("train/approx_kl", np.mean(approx_kl_divs))
         self.logger.record("train/clip_fraction", np.mean(clip_fractions))
         self.logger.record("train/loss", loss.item())
+##################################################################################################################################################################
         self.logger.record("train/explained_variance", explained_var)
         if hasattr(self.policy, "log_std"):
             self.logger.record("train/std", th.exp(self.policy.log_std).mean().item())
