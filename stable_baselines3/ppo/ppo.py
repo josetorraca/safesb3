@@ -98,7 +98,7 @@ class PPO(OnPolicyAlgorithm):
         device: Union[th.device, str] = "auto",
 ##################################################################################################################################################################    
         positive_definiteness_penalty_weight: float = 0.01,  # Default weight for positive definiteness penalty
-        gradient_penalty_weight: float = 0.01,  # Default weight for gradient penalty
+        derivative_penalty_weight: float = 0.01,  # Default weight for gradient penalty
 ##################################################################################################################################################################    
         _init_setup_model: bool = True,
     ):
@@ -163,7 +163,7 @@ class PPO(OnPolicyAlgorithm):
 ##################################################################################################################################################################      
         # Additional weights for penalties
         self.positive_definiteness_penalty_weight = positive_definiteness_penalty_weight
-        self.gradient_penalty_weight = gradient_penalty_weight
+        self.derivative_penalty_weight = derivative_penalty_weight
 ##################################################################################################################################################################   
 
         if _init_setup_model:
@@ -276,13 +276,13 @@ class PPO(OnPolicyAlgorithm):
                     positive_definiteness_penalty = th.mean(th.relu(-values))
                     loss += self.positive_definiteness_penalty_weight * positive_definiteness_penalty
 
-                # Ensuring gradient < 0 w.r.t time
+                # Ensuring derivative < 0 w.r.t time
                 # Compare current values to previous values
                 if not prev_value.equal(th.tensor(float('inf'))):  # Skip the very first comparison
                     value_increase = th.relu(values - prev_value)  # Positive increase
-                    gradient_penalty = th.mean(value_increase)
-                    loss += self.gradient_penalty_weight * gradient_penalty
-                
+                    derivative_penalty = th.mean(value_increase)
+                    loss += self.derivative_penalty_weight * derivative_penalty
+    
                 # Store current values for next comparison
                 prev_value = values.detach().clone()
            
